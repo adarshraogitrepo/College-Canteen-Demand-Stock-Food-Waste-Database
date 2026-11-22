@@ -79,3 +79,10 @@ def get_feedback_for_log(log_id: int):
     notes = list(db.FeedbackNotes.find({"log_id": int(log_id)}, {"_id": 0}))
     return notes
 
+def clear_mongo_logs():
+    db = get_mongo_db()
+    db.AuditTrail.delete_many({})
+    db.FeedbackNotes.delete_many({})
+    db.DailyContext.delete_many({})
+    return {"status": "ok", "message": "MongoDB logs cleared."}
+

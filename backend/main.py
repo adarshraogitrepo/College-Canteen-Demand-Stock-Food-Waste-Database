@@ -10,11 +10,11 @@ from backend.sql import (
     get_vendors, get_raw_materials, record_meal_log, record_wastage_log,
     record_purchase, get_weekday_leftover_report, get_recent_weekly_wastage,
     get_monthly_vendor_spend, get_consecutive_high_leftover_items,
-    get_meal_logs_for_date, get_connection
+    get_meal_logs_for_date, get_connection, clear_operational_logs
 )
 from backend.mongo import (
     test_mongo_connection, upsert_daily_context, get_daily_context,
-    get_all_contexts, add_feedback_note, get_feedback_for_log
+    get_all_contexts, add_feedback_note, get_feedback_for_log, clear_mongo_logs
 )
 from backend.audit import (
     append_audit_record, verify_audit_chain, get_recent_audit_logs
@@ -309,6 +309,17 @@ def verify_audit():
 @app.get("/api/audit/logs")
 def fetch_audit_logs(limit: int = 50):
     return get_recent_audit_logs(limit)
+
+@app.delete("/api/admin/clear-logs")
+def clear_all_operational_logs():
+    sql_res = clear_operational_logs()
+    mongo_res = clear_mongo_logs()
+    return {
+        "status": "success",
+        "message": "All operational logs (meals, wastage, purchases, audit trail, feedback, context) cleared. Master data preserved.",
+        "mysql": sql_res,
+        "mongodb": mongo_res
+    }
 
 # -------------------------------------------------------------
 # Serve Frontend Static Files

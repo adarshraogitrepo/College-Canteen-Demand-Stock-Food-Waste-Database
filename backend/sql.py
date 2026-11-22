@@ -206,3 +206,15 @@ def get_meal_logs_for_date(meal_date: str):
             cur.execute(query, (meal_date,))
             return cur.fetchall()
 
+def clear_operational_logs():
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SET FOREIGN_KEY_CHECKS = 0;")
+            cur.execute("TRUNCATE TABLE wastage_log;")
+            cur.execute("TRUNCATE TABLE meal_log;")
+            cur.execute("TRUNCATE TABLE meal;")
+            cur.execute("TRUNCATE TABLE purchase;")
+            cur.execute("SET FOREIGN_KEY_CHECKS = 1;")
+            return {"status": "ok", "message": "MySQL operational logs cleared."}
+
+

@@ -18,7 +18,10 @@
           <p class="subtitle">Demand, Stock & Food-Waste Tracking (MySQL 8 + MongoDB)</p>
         </div>
       </div>
-      <div class="status-badge" id="system-status">Checking Status...</div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <button class="btn-danger-outline" onclick="clearOldLogs()" title="Clear test meal logs, wastage, and audit trail while preserving menu and master tables">🗑️ Clear Old Logs</button>
+        <div class="status-badge" id="system-status">Checking Status...</div>
+      </div>
     </div>
     <nav class="nav-tabs">
       <button class="tab-btn active" onclick="switchTab('tab-entry')">📝 Meal & Wastage Entry</button>

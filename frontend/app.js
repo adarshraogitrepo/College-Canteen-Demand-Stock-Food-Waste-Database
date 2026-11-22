@@ -429,3 +429,23 @@ async function verifyChain() {
   }
 }
 
+async function clearOldLogs() {
+  const confirmed = confirm(
+    "⚠️ ARE YOU SURE YOU WANT TO CLEAR OLD LOGS?\n\nThis will remove all transaction rows (meals, wastage, purchases, audit blocks, daily context, and feedback notes).\n\nYour Master Data (Food Menu, Staff, Vendors, Recipes, Raw Materials) will be safely KEPT intact."
+  );
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/clear-logs`, {
+      method: "DELETE"
+    });
+    const data = await res.json();
+    alert("✅ " + data.message);
+    loadTodayMealLogs();
+    loadAllReports();
+    loadAuditLogs();
+  } catch (err) {
+    alert("❌ Error clearing logs: " + err.message);
+  }
+}
+
