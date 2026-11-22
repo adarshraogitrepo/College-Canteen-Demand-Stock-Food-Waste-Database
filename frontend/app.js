@@ -100,11 +100,19 @@ async function loadTodayMealLogs() {
     const fbSelect = document.getElementById("fb-log-id");
     
     if (logs && logs.length > 0) {
-      const options = logs.map(l => 
-        `<option value="${l.log_id}">#${l.log_id}: ${l.meal_type.toUpperCase()} - ${l.item_name} (Prep: ${l.qty_prepared}, Sold: ${l.qty_sold}, Leftover: ${l.leftover_qty})</option>`
+      const wastageOptions = logs.map(l => {
+        const remaining = l.remaining_leftover !== undefined ? l.remaining_leftover : l.leftover_qty;
+        const isExhausted = remaining <= 0;
+        const statusText = isExhausted ? "(All Leftovers Accounted For)" : `(Remaining: ${remaining} / Total Leftover: ${l.leftover_qty})`;
+        return `<option value="${l.log_id}" ${isExhausted ? "disabled" : ""}>#${l.log_id}: ${l.meal_type.toUpperCase()} - ${l.item_name} ${statusText}</option>`;
+      }).join("");
+
+      const fbOptions = logs.map(l => 
+        `<option value="${l.log_id}">#${l.log_id}: ${l.meal_type.toUpperCase()} - ${l.item_name}</option>`
       ).join("");
-      if (wastageSelect) wastageSelect.innerHTML = options;
-      if (fbSelect) fbSelect.innerHTML = options;
+
+      if (wastageSelect) wastageSelect.innerHTML = wastageOptions;
+      if (fbSelect) fbSelect.innerHTML = fbOptions;
     } else {
       const fallback = '<option value="">No meals logged for this date yet</option>';
       if (wastageSelect) wastageSelect.innerHTML = fallback;
@@ -196,6 +204,8 @@ async function handleWastage(e) {
     msg.className = "alert-msg success";
     msg.style.display = "block";
     msg.innerHTML = `✅ Wastage recorded! 🔒 Audit Hash: <code>${data.audit_hash.substring(0, 16)}...</code>`;
+    document.getElementById("wastage-qty").value = "";
+    loadTodayMealLogs();
   } catch (err) {
     msg.className = "alert-msg error";
     msg.style.display = "block";

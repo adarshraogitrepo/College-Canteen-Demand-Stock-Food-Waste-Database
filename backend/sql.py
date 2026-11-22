@@ -92,13 +92,23 @@ def record_meal_log(meal_date: str, meal_type: str, item_id: int, staff_id: int,
 def record_wastage_log(log_id: int, qty_wasted: int, reason_code: str, disposal_method: str):
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # Check remaining leftover
-            cur.execute("SELECT leftover_qty FROM meal_log WHERE log_id = %s", (log_id,))
+            # Check leftover and any previously recorded wastage for this meal log
+            cur.execute("""
+                SELECT ml.leftover_qty, COALESCE(SUM(w.qty_wasted), 0) AS already_wasted
+                FROM meal_log ml
+                LEFT JOIN wastage_log w ON w.log_id = ml.log_id
+                WHERE ml.log_id = %s
+                GROUP BY ml.leftover_qty
+            """, (log_id,))
             ml = cur.fetchone()
             if not ml:
                 raise ValueError(f"Meal log #{log_id} does not exist.")
-            if qty_wasted > ml["leftover_qty"]:
-                raise ValueError(f"Wasted quantity ({qty_wasted}) cannot exceed leftover quantity ({ml['leftover_qty']}).")
+            
+            remaining = ml["leftover_qty"] - int(ml["already_wasted"])
+            if remaining <= 0:
+                raise ValueError(f"All {ml['leftover_qty']} units of leftover for meal #{log_id} have already been accounted for.")
+            if qty_wasted > remaining:
+                raise ValueError(f"Cannot log {qty_wasted} units of waste. Only {remaining} units of leftover remain unaccounted for (Total leftover: {ml['leftover_qty']}, Already logged: {ml['already_wasted']}).")
 
             sql = """
                 INSERT INTO wastage_log (log_id, qty_wasted, reason_code, disposal_method)
@@ -179,7 +189,8 @@ def get_meal_logs_for_date(meal_date: str):
         SELECT ml.log_id, m.meal_date, m.meal_type, fi.name AS item_name,
                ml.qty_prepared, ml.qty_sold, ml.leftover_qty, ml.price_per_unit,
                s.name AS logged_by,
-               COALESCE(SUM(w.qty_wasted), 0) AS total_wasted
+               COALESCE(SUM(w.qty_wasted), 0) AS total_wasted,
+               (ml.leftover_qty - COALESCE(SUM(w.qty_wasted), 0)) AS remaining_leftover
         FROM meal_log ml
         JOIN meal m ON m.meal_id = ml.meal_id
         JOIN food_item fi ON fi.item_id = ml.item_id
