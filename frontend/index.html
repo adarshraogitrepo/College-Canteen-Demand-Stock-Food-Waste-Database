@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canteen Demand, Stock & Food-Waste System</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-content">
+      <div class="logo">
+        <span class="logo-icon">🍲</span>
+        <div>
+          <h1>College Canteen DBMS</h1>
+          <p class="subtitle">Demand, Stock & Food-Waste Tracking (MySQL 8 + MongoDB)</p>
+        </div>
+      </div>
+      <div class="status-badge" id="system-status">Checking Status...</div>
+    </div>
+    <nav class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('tab-entry')">📝 Meal & Wastage Entry</button>
+      <button class="tab-btn" onclick="switchTab('tab-context')">🌤️ Daily Context & Notes</button>
+      <button class="tab-btn" onclick="switchTab('tab-purchases')">📦 Raw Purchases</button>
+      <button class="tab-btn" onclick="switchTab('tab-reports')">📊 Analytics & Reports</button>
+      <button class="tab-btn" onclick="switchTab('tab-audit')">🔒 Tamper-Proof Audit Chain</button>
+    </nav>
+  </header>
+
+  <main class="container">
+
+    <!-- TAB 1: MEAL & WASTAGE ENTRY -->
+    <section id="tab-entry" class="tab-panel active">
+      <div class="grid-2">
+        <div class="card">
+          <h2>Record Meal Preparation & Sales</h2>
+          <p class="hint">Logs directly to MySQL <code>meal_log</code> and appends a SHA-256 hash to MongoDB <code>AuditTrail</code>.</p>
+          <form id="form-meal-log" onsubmit="handleMealLog(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Date</label>
+                <input type="date" id="meal-date" required>
+              </div>
+              <div class="form-group">
+                <label>Meal Type</label>
+                <select id="meal-type" required>
+                  <option value="breakfast">Breakfast</option>
+                  <option value="lunch" selected>Lunch</option>
+                  <option value="snacks">Snacks</option>
+                  <option value="dinner">Dinner</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Food Item</label>
+                <select id="meal-item" required></select>
+              </div>
+              <div class="form-group">
+                <label>Staff Logged By</label>
+                <select id="meal-staff" required></select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Quantity Prepared</label>
+                <input type="number" id="meal-qty-prep" min="0" required placeholder="e.g. 100">
+              </div>
+              <div class="form-group">
+                <label>Quantity Sold</label>
+                <input type="number" id="meal-qty-sold" min="0" required placeholder="e.g. 85">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Price Per Unit (₹)</label>
+                <input type="number" id="meal-price" min="0" step="0.5" required placeholder="40.00">
+              </div>
+              <div class="form-group">
+                <label>Estimated Customer Footfall</label>
+                <input type="number" id="meal-customers" min="0" placeholder="Optional">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save Meal Entry</button>
+          </form>
+          <div id="meal-log-msg" class="alert-msg"></div>
+        </div>
+
+        <div class="card">
+          <h2>Record Wastage for Leftovers</h2>
+          <p class="hint">Enforces <code>SUM(qty_wasted) &le; leftover_qty</code> before writing to MySQL.</p>
+          <form id="form-wastage" onsubmit="handleWastage(event)">
+            <div class="form-group">
+              <label>Select Active Meal Log</label>
+              <select id="wastage-log-id" required>
+                <option value="">Select an entry from today...</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Quantity Wasted</label>
+                <input type="number" id="wastage-qty" min="1" required placeholder="Units wasted">
+              </div>
+              <div class="form-group">
+                <label>Reason Code</label>
+                <select id="wastage-reason" required>
+                  <option value="over_prepared">Over Prepared</option>
+                  <option value="spoiled">Spoiled</option>
+                  <option value="quality_issue">Quality Issue</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Disposal Method</label>
+              <select id="wastage-disposal" required>
+                <option value="animal_feed">Animal Feed</option>
+                <option value="composted">Composted</option>
+                <option value="donated">Donated</option>
+                <option value="discarded">Discarded (Trash)</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn btn-secondary">Log Food Wastage</button>
+          </form>
+          <div id="wastage-msg" class="alert-msg"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: DAILY CONTEXT & FEEDBACK -->
+    <section id="tab-context" class="tab-panel">
+      <div class="grid-2">
+        <div class="card">
+          <h2>Daily Operational Context (MongoDB)</h2>
+          <p class="hint">Variable external factors stored in <code>DailyContext</code> collection.</p>
+          <form id="form-context" onsubmit="handleContext(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Date</label>
+                <input type="date" id="ctx-date" required>
+              </div>
+              <div class="form-group">
+                <label>Weather</label>
+                <select id="ctx-weather">
+                  <option value="sunny">Sunny / Normal</option>
+                  <option value="rainy">Rainy (Lower Footfall)</option>
+                  <option value="cloudy">Cloudy</option>
+                  <option value="cold">Cold</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row checkbox-row">
+              <label class="checkbox-label">
+                <input type="checkbox" id="ctx-holiday"> College Holiday
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" id="ctx-exam"> Exam Period (Higher Demand Fluctuations)
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label>Special Campus Event</label>
+              <input type="text" id="ctx-event" placeholder="e.g. Sports Day, Fest Day 1">
+            </div>
+
+            <div class="form-group">
+              <label>Notes / Operational Anomalies</label>
+              <textarea id="ctx-notes" rows="3" placeholder="e.g. Sudden power outage during lunch"></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save Daily Context</button>
+          </form>
+          <div id="ctx-msg" class="alert-msg"></div>
+        </div>
+
+        <div class="card">
+          <h2>Student / Staff Feedback Notes</h2>
+          <p class="hint">Free-text feedback auto-tagged with keywords (stale, salty, shortage, etc.).</p>
+          <form id="form-feedback" onsubmit="handleFeedback(event)">
+            <div class="form-group">
+              <label>Linked Meal Log</label>
+              <select id="fb-log-id" required>
+                <option value="">Select meal log...</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Feedback Source</label>
+                <select id="fb-source">
+                  <option value="staff">Canteen Staff</option>
+                  <option value="student">Student / Customer</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Staff ID (if staff source)</label>
+                <select id="fb-staff-id"></select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Note / Comment</label>
+              <textarea id="fb-text" rows="3" required placeholder="e.g. Sambar was too salty and rice was undercooked today"></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-secondary">Submit Feedback Note</button>
+          </form>
+          <div id="fb-msg" class="alert-msg"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: PURCHASES -->
+    <section id="tab-purchases" class="tab-panel">
+      <div class="card max-w-700">
+        <h2>Record Raw Material Purchase</h2>
+        <p class="hint">Fix applied: Procurement references <code>RAW_MATERIAL</code>, not finished dishes.</p>
+        <form id="form-purchase" onsubmit="handlePurchase(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Purchase Date</label>
+              <input type="date" id="pur-date" required>
+            </div>
+            <div class="form-group">
+              <label>Vendor</label>
+              <select id="pur-vendor" required></select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Raw Material</label>
+              <select id="pur-material" required></select>
+            </div>
+            <div class="form-group">
+              <label>Quantity Purchased</label>
+              <input type="number" id="pur-qty" min="0.1" step="0.1" required placeholder="e.g. 50">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Total Cost (₹)</label>
+              <input type="number" id="pur-cost" min="0" step="1" required placeholder="Total invoice amount">
+            </div>
+            <div class="form-group">
+              <label>Batch / Invoice No.</label>
+              <input type="text" id="pur-batch" placeholder="e.g. BATCH-2026-11">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Record Raw Material Purchase</button>
+        </form>
+        <div id="pur-msg" class="alert-msg"></div>
+      </div>
+    </section>
+
+    <!-- TAB 4: ANALYTICS & REPORTS -->
+    <section id="tab-reports" class="tab-panel">
+      <div class="reports-header">
+        <h2>SQL Views & Analytical Reports (No ML)</h2>
+        <button class="btn btn-outline" onclick="loadAllReports()">🔄 Refresh Reports</button>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>📅 Weekday Leftover % (View)</h3>
+          <p class="hint">Aggregated from <code>view_weekday_leftover_pct</code>.</p>
+          <div class="table-wrap">
+            <table id="tbl-weekday">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Weekday</th>
+                  <th>Sessions</th>
+                  <th>Avg Leftover %</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>🗑️ 7-Day Food Wastage (View)</h3>
+          <p class="hint">Aggregated from <code>view_recent_weekly_wastage</code>.</p>
+          <div class="table-wrap">
+            <table id="tbl-wastage">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Category</th>
+                  <th>Total Wasted</th>
+                  <th>Unit</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2 mt-20">
+        <div class="card">
+          <h3>💰 Monthly Vendor Spend (View)</h3>
+          <p class="hint">Aggregated from <code>view_monthly_vendor_spend</code>.</p>
+          <div class="table-wrap">
+            <table id="tbl-vendor">
+              <thead>
+                <tr>
+                  <th>Vendor</th>
+                  <th>Month</th>
+                  <th>Orders</th>
+                  <th>Total Spend (₹)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>🎓 Exam Period vs Normal Days (Cross-Store Join)</h3>
+          <p class="hint">Application-layer join between MongoDB <code>DailyContext</code> and MySQL <code>meal_log</code>.</p>
+          <div class="table-wrap">
+            <table id="tbl-exam">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th>Total Meals</th>
+                  <th>Avg Leftover %</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: AUDIT CHAIN -->
+    <section id="tab-audit" class="tab-panel">
+      <div class="card">
+        <div class="audit-header">
+          <div>
+            <h2>Tamper-Evident SHA-256 Hash Chain</h2>
+            <p class="hint">Stored in MongoDB <code>AuditTrail</code> collection. Every record is cryptographically linked to the previous record.</p>
+          </div>
+          <button class="btn btn-success" onclick="verifyChain()">🔍 Verify Hash Chain Integrity</button>
+        </div>
+
+        <div id="audit-verify-result" class="verify-banner">Click "Verify Hash Chain Integrity" to audit the records.</div>
+
+        <h3 class="mt-20">Recent Audit Records</h3>
+        <div class="table-wrap">
+          <table id="tbl-audit">
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Target Record</th>
+                <th>Timestamp (UTC)</th>
+                <th>Previous Hash (64-hex)</th>
+                <th>Current Hash (SHA-256)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
