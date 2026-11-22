@@ -155,7 +155,7 @@ async function handleMealLog(e) {
 
     msg.className = "alert-msg success";
     msg.style.display = "block";
-    msg.innerHTML = `✅ <strong>Recorded in MySQL!</strong><br>• Prepared: ${data.meal_log.qty_prepared} | Sold: ${data.meal_log.qty_sold}<br>• Auto-computed Leftover: <strong>${data.meal_log.leftover_qty}</strong> units<br>🔒 <strong>MongoDB Audit Hash:</strong> <code>${data.audit_hash.substring(0, 16)}...</code>`;
+    msg.innerHTML = `✅ <strong>Recorded in MySQL!</strong><br>• Cumulative Prepared: <strong>${data.meal_log.qty_prepared}</strong> | Sold: <strong>${data.meal_log.qty_sold}</strong><br>• Current Leftover: <strong>${data.meal_log.leftover_qty}</strong> units<br>🔒 <strong>MongoDB Audit Hash:</strong> <code>${data.audit_hash.substring(0, 16)}...</code>`;
     loadTodayMealLogs();
   } catch (err) {
     msg.className = "alert-msg error";

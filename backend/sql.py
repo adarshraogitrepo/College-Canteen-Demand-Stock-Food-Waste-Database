@@ -71,10 +71,13 @@ def record_meal_log(meal_date: str, meal_type: str, item_id: int, staff_id: int,
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     staff_id = VALUES(staff_id),
-                    qty_prepared = VALUES(qty_prepared),
-                    qty_sold = VALUES(qty_sold),
+                    qty_prepared = qty_prepared + VALUES(qty_prepared),
+                    qty_sold = qty_sold + VALUES(qty_sold),
                     price_per_unit = VALUES(price_per_unit),
-                    customer_count_est = VALUES(customer_count_est)
+                    customer_count_est = CASE 
+                        WHEN customer_count_est IS NULL AND VALUES(customer_count_est) IS NULL THEN NULL
+                        ELSE COALESCE(customer_count_est, 0) + COALESCE(VALUES(customer_count_est), 0)
+                    END
             """
             cur.execute(sql, (meal_id, item_id, staff_id, qty_prepared, qty_sold, price_per_unit, customer_count_est))
             log_id = cur.lastrowid
